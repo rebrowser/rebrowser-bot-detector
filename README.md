@@ -20,7 +20,7 @@ Just follow the tips on the page. Some require extra settings, some require patc
 ## What are the tests?
 Our goal is to keep this list in an actual state. If you would like to suggest any new tests or any adjustments, please open a new issue. Any feedback will be appreciated.
 
-### runtimeEnableLeakInit
+### runtimeEnableLeak
 By default, Puppeteer, Playwright, and other automation tools rely on the `Runtime.enable` CDP method to work with execution contexts. Any website can detect it with just a few lines of code.
 
 You can read more about it in this post: [How to fix Runtime.Enable CDP detection of Puppeteer, Playwright and other automation libraries?](https://rebrowser.net/blog/how-to-fix-runtime-enable-cdp-detection-of-puppeteer-playwright-and-other-automation-libraries-61740)

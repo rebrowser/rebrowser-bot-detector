@@ -1,7 +1,7 @@
 {
   "name": "rebrowser-bot-detector",
   "version": "1.0.0",
-  "description": "Modern tests to detect automated browser behavior. Covers most important leaks from Puppeteer and Playwright.",
+  "description": "Modern tests to detect automated browser behavior. Cover most important leaks from Puppeteer and Playwright.",
   "keywords": [
     "automation",
     "bot",

@@ -10,7 +10,7 @@ If you do any kind of browser automation, you might want to make sure that your 
 
 ⚠️ The recommendation is to take care of all of these tests before you try to find high-quality proxies, adjust your automated behavior, and do any other optimizations with your pipeline. **These tests are crucial** to be passed.
 
-You can try all the tests on this page: [https://rebrowser.github.io/rebrowser-bot-detector/](https://rebrowser.github.io/rebrowser-bot-detector/)
+➡️ You can try all the tests on this page: [https://bot-detector.rebrowser.net/](https://bot-detector.rebrowser.net/)
 
 *These tests mainly focus on Chromium automated by Puppeteer and Playwright but could also be useful for testing other automation tools.*
 

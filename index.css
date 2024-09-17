@@ -1,0 +1,110 @@
+:root,::backdrop {
+    --sans-font: -apple-system,BlinkMacSystemFont,"Avenir Next",Avenir,"Nimbus Sans L",Roboto,"Noto Sans","Segoe UI",Arial,Helvetica,"Helvetica Neue",sans-serif;
+    --mono-font: Consolas,Menlo,Monaco,"Andale Mono","Ubuntu Mono",monospace;
+    --standard-border-radius: 5px;
+    --bg: #fff;
+    --accent-bg: #f5f7ff;
+    --text: #212121;
+    --text-light: #585858;
+    --border: #898ea4;
+    --accent: #0d47a1;
+    --accent-hover: #1266e2;
+    --accent-text: var(--bg);
+    --code: #d81b60;
+    --preformatted: #444;
+    --marked: #fd3;
+    --disabled: #efefef
+}
+
+@media (prefers-color-scheme: dark) {
+    :root,::backdrop {
+        color-scheme:dark;
+        --bg: #212121;
+        --accent-bg: #2b2b2b;
+        --text: #dcdcdc;
+        --text-light: #ababab;
+        --accent: #ffb300;
+        --accent-hover: #ffe099;
+        --accent-text: var(--bg);
+        --code: #f06292;
+        --preformatted: #ccc;
+        --disabled: #111
+    }
+
+    img,video {
+        opacity: .8
+    }
+}
+
+html {
+    font-family: var(--sans-font);
+}
+
+body {
+    color: var(--text);
+    background-color: var(--bg);
+    font-size: 1.15rem;
+    line-height: 1.5;
+    margin: 15px 50px;
+}
+
+.text-secondary {
+    color: var(--text-light);
+}
+
+.text-secondary a {
+    color: var(--text-light) !important;
+}
+
+a,a:visited {
+    color: var(--accent)
+}
+
+a:hover {
+    text-decoration: none
+}
+
+h1 {
+    font-size: 3rem;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+table {
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    width: 100%;
+}
+
+td,th {
+    border: 1px solid var(--border);
+    text-align: start;
+    padding: .5rem
+}
+
+th {
+    background-color: var(--accent-bg);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+pre {
+    color: var(--text-light);
+    font-family: var(--mono-font);
+    margin: 10px 0 0 0;
+    font-size: 80%;
+}
+
+code {
+    font-family: var(--mono-font);
+    color: var(--code);
+}
+
+.text-nowrap {
+    white-space: nowrap;
+}
+
+#detections-json {
+    width: 100%;
+    height: 450px;
+}

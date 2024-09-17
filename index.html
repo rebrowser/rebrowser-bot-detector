@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="Content-Security-Policy" content="default-src * data: 'unsafe-eval' 'unsafe-inline' blob:; script-src blob: 'self' 'unsafe-eval';" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+        <title>rebrowser-bot-detector</title>
+        <meta name="description" content="Set of modern tests for browser automation. Check your Puppeteer and Playwright for leaks and detections." />
+        <script src="index.js"></script>
+        <link rel="stylesheet" href="index.css" />
+    </head>
+    <body>
+        <h1>🕵️ rebrowser-bot-detector </h1>
+        <div class="text-secondary">Modern tests to detect automated browser behavior. See <a href="https://github.com/rebrowser/rebrowser-bot-detector" target="_blank">github repo</a> for more details.</div>
+        
+        <table id="detections-table">
+            <thead>
+                <tr>
+                    <th>Test name</th>
+                    <th>Time since load</th>
+                    <th>Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+            
+            </tbody>
+        </table>
+        
+        <h3>JSON</h3>
+        <textarea id="detections-json"></textarea>
+    </body>
+</html>

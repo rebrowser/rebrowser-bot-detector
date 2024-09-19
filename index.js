@@ -86,7 +86,7 @@ function testNavigatorWebdriver() {
     addDetection({
       type: 'navigatorWebdriver',
       rating: -1,
-      note: 'No webdriver, no signs of automation.',
+      note: 'No webdriver presented.',
     })
   }
 }
@@ -281,6 +281,10 @@ function initTests() {
   testNavigatorWebdriver()
   testCsp()
   testViewport()
+}
+
+function toggleHowTo() {
+  document.querySelector('#how-to-run-test').classList.toggle('d-none')
 }
 
 async function main() {

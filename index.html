@@ -2,8 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <meta http-equiv="Content-Security-Policy" content="default-src * data: 'unsafe-eval' 'unsafe-inline' blob:; script-src blob: 'self' 'unsafe-eval';" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+        <meta http-equiv="Content-Security-Policy" content="default-src * data: 'unsafe-eval' 'unsafe-inline' blob:; script-src blob: 'self' 'unsafe-eval' 'unsafe-inline';" />
         <title>rebrowser-bot-detector</title>
         <meta name="description" content="Set of modern tests for browser automation. Check your Puppeteer and Playwright for leaks and detections." />
         <script src="index.js"></script>
@@ -11,7 +10,19 @@
     </head>
     <body>
         <h1>🕵️ rebrowser-bot-detector </h1>
-        <div class="text-secondary">Modern tests to detect automated browser behavior. See <a href="https://github.com/rebrowser/rebrowser-bot-detector" target="_blank">github repo</a> for more details.</div>
+        <div class="text-secondary">Modern tests to detect automated browser behavior. See <a href="https://github.com/rebrowser/rebrowser-bot-detector" target="_blank">github repo</a> for more details. <span onclick="toggleHowTo();" class="text-secondary dashed cursor-pointer">How to properly run the tests?</span></div>
+        <div id="how-to-run-test" class="d-none">
+            <p>Tests marked with ⚪️ sign require some extra steps to be triggered. You need to run some JS from your automation script.</p>
+                <pre class="codeblock">
+                    /* puppeteer & playwright */
+                    // dummyFn
+                    await page.evaluate(() => window.dummyFn())
+                    // sourceUrlLeak
+                    await page.evaluate(() => document.getElementById('detections-json'))
+                    // mainWorldExecution
+                    await page.evaluate(() => document.getElementsByClassName('div'))
+                </pre>
+        </div>
         
         <table id="detections-table">
             <thead>

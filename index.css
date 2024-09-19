@@ -89,7 +89,6 @@ th {
 }
 
 pre {
-    color: var(--text-light);
     font-family: var(--mono-font);
     margin: 10px 0 0 0;
     font-size: 80%;
@@ -107,4 +106,22 @@ code {
 #detections-json {
     width: 100%;
     height: 450px;
+}
+
+.dashed {
+    border-bottom: 1px dashed;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.d-none {
+    display: none;
+}
+
+.codeblock {
+    border-left: 3px solid var(--code);
+    white-space: pre-line;
+    padding: 0 1.5em;
 }

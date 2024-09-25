@@ -55,7 +55,7 @@ It's quite noticeable and easy to detect. None of the normal users with normal b
 Fix: use `defaultViewport: null` (Puppeteer) and `viewport: null` (Playwright).
 
 ### window.dummyFn
-The goal is to test that you can access main world objects. If you apply [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches), then you cannot easily access the main world as all of your `page.evaluate()` scripts will be executed in an isolated world. To be able to do that, you need to use some special technique (see rebrowser-patches repo for details). This test will help you to debug it.
+The goal is to test that you can access main world objects. If you apply [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches), then you cannot easily access the main world as all of your `page.evaluate()` scripts will be executed in an isolated world. To be able to do that, you need to use some special technique (read [How to Access Main Context Objects from Isolated Context in Puppeteer & Playwright](https://rebrowser.net/blog/how-to-access-main-context-objects-from-isolated-context-in-puppeteer-and-playwright-23741) or see rebrowser-patches repo for details). This test will help you to debug it.
 
 ## What is Rebrowser?
 This package is sponsored and maintained by [Rebrowser](https://rebrowser.net). We allow you to scale your automation in the cloud with hundreds of unique fingerprints.

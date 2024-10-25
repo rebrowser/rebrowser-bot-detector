@@ -245,7 +245,7 @@ async function testUseragent() {
   let rating
   let note
   const debug = {}
-  const useragentVersionItems = await navigator.userAgentData.getHighEntropyValues(['fullVersionList']).then(ua => ua.fullVersionList.filter(item => ['Chromium', 'Google Chrome'].includes(item.brand)))
+  const useragentVersionItems = await navigator.userAgentData.getHighEntropyValues(['fullVersionList']).then(ua => ua.fullVersionList?.filter(item => ['Chromium', 'Google Chrome'].includes(item.brand)) || [])
   debug.useragentVersionItems = useragentVersionItems
   const useragentVersionItemsBrands = useragentVersionItems.map(item => item.brand)
 

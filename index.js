@@ -302,7 +302,7 @@ async function testUseragent() {
       return segmentsA.length - segmentsB.length
     }
     const googleChromeVersion = useragentVersionItems.find(item => item.brand === 'Google Chrome').version
-    if (cmpVersions(googleChromeVersion, latestStableReleaseVersion)) {
+    if (cmpVersions(googleChromeVersion, latestStableReleaseVersion) > 0) {
       note = 'Your Chrome version is higher than the latest stable release. You might be using not Stable channel which is abnormal.'
       rating = .5
     }
@@ -320,7 +320,7 @@ async function testUseragent() {
       type: 'useragent',
       rating: -1,
       debug,
-      note: 'Google Chrome useragent looks fine.',
+      note: 'Google Chrome version is not higher than the latest stable release version which is fine.',
     })
   }
 }

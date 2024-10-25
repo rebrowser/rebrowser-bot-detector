@@ -57,7 +57,20 @@ Fix: use `defaultViewport: null` (Puppeteer) and `viewport: null` (Playwright).
 ### window.dummyFn
 The goal is to test that you can access main world objects. If you apply [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches), then you cannot easily access the main world as all of your `page.evaluate()` scripts will be executed in an isolated world. To be able to do that, you need to use some special technique (read [How to Access Main Context Objects from Isolated Context in Puppeteer & Playwright](https://rebrowser.net/blog/how-to-access-main-context-objects-from-isolated-context-in-puppeteer-and-playwright-23741) or see rebrowser-patches repo for details). This test will help you to debug it.
 
+### useragent
+Puppeteer and Playwright use Google Chrome for Testing out of the box. It's a red flag for any anti-bot system.
+
+### pwInitScripts
+Playwright injects `__pwInitScripts` into the global scope of the every page by default.
+
+### exposeFunctionLeak
+It's quite popular to use `page.exposeFunction()` in Puppeteer and Playwright to pass some function from nodejs to browser env. However, this method is full of leaks in both of these libraries.
+
 ## What is Rebrowser?
-This package is sponsored and maintained by [Rebrowser](https://rebrowser.net). We allow you to scale your automation in the cloud with hundreds of unique fingerprints.
+This package is sponsored and maintained by [Rebrowser](https://rebrowser.net). We allow you to scale your browser automation and web scraping in the cloud with hundreds of unique fingerprints.
 
 Our cloud browsers have great success rates and come with nice features such as notifications if your library uses `Runtime.Enable` during execution or has other red flags that could be improved. [Create an account](https://rebrowser.net) today to get invited to test our bleeding-edge platform and take your automation business to the next level.
+
+### Special thanks
+
+[kaliiiiiiiiii/brotector](https://github.com/kaliiiiiiiiii/brotector)

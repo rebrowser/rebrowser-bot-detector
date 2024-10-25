@@ -37,9 +37,5 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "license": "MIT",
-  "dependencies": {
-    "playwright": "^1.47.1",
-    "puppeteer": "^23.3.0"
-  }
+  "license": "MIT"
 }

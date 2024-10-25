@@ -1,3 +1,6 @@
+const usePatchesTip = 'Use <a href="https://github.com/rebrowser/rebrowser-patches" target="_blank">rebrowser-patches</a> to fix it.'
+const noFixTip = 'No fix available. Follow <a href="https://github.com/rebrowser/rebrowser-patches" target="_blank">rebrowser-patches</a> to stay up-to-date.'
+
 function dummyFnInit() {
   addDetection({
     type: 'dummyFn',
@@ -23,7 +26,7 @@ function runtimeEnableLeakInit() {
         rating: 1,
         note: `
             <div>You might have opened devtools. It's a red flag for any anti-bot system.</div>
-            <div>You might have CDP with <code>Runtime.enable</code>. Use <a href="https://github.com/rebrowser/rebrowser-patches" target="_blank">rebrowser-patches</a>.</div>
+            <div>You might have CDP with <code>Runtime.enable</code>. ${usePatchesTip}</div>
        `,
         debug: {
           stackLookupCount: window.runtimeEnableLeakVars.stackLookupCount,
@@ -56,6 +59,113 @@ function runtimeEnableLeakInit() {
   })
 
   testRuntimeEnableLeak()
+}
+
+function testExposeFunctionLeakInit() {
+  const testExposeFunctionLeak = async () => {
+    const detection = {
+      type: 'exposeFunctionLeak',
+      note: 'No leak detected.',
+      rating: -1,
+    }
+
+    if (typeof window.exposedFn === 'undefined') {
+      detection.rating = 0
+      detection.note = 'No <code>window.exposedFn</code>. Use <code>page.exposeFunction</code> to trigger this test.'
+    } else if (window.exposedFn.toString()?.includes('This is the Puppeteer binding')) {
+      detection.rating = 1
+      detection.note = `
+        <div>You're using unpatched Puppeteer and method <code>page.exposeFunction</code>.</div>
+        <div>${noFixTip}</div>
+        <div>Remove <code>page.exposeFunction</code> from your code to avoid this leak.</div>
+      `
+      detection.debug = {
+        'exposedFn.toString()': window.exposedFn.toString(),
+      }
+    } else if (window.exposedFn.toString()?.includes('exposeBindingHandle supports a single argument')) {
+      detection.rating = 1
+      detection.note = `
+        <div>You're using unpatched Playwright and method <code>page.exposeFunction</code>.</div>
+        <div>${noFixTip}</div>
+        <div>Remove <code>page.exposeFunction</code> from your code to avoid this leak.</div>
+      `
+      detection.debug = {
+        'exposedFn.toString()': window.exposedFn.toString(),
+      }
+    } else {
+      for (const key in window) {
+        if (key.startsWith('puppeteer_')) {
+          detection.rating = 1
+          detection.note = `
+            <div>You're using unpatched Puppeteer and method <code>page.exposeFunction</code>.</div>
+            <div>${noFixTip}</div>
+            <div>Remove <code>page.exposeFunction</code> from your code to avoid this leak.</div>
+          `
+          detection.debug = {
+            windowKey: key,
+          }
+          break
+        }
+        if (key === '__playwright__binding__') {
+          detection.rating = 1
+          detection.note = `
+            <div>You're using unpatched Playwright and method <code>page.exposeFunction</code> as it creates <code>window.__playwright__binding__</code> object.</div>
+            <div>${noFixTip}</div>
+            <div>Remove <code>page.exposeFunction</code> from your code to avoid this leak.</div>
+          `
+          detection.debug = {
+            windowKey: key,
+          }
+          break
+        }
+        if (typeof window[key] === 'function' && window[key].__installed === true) {
+          detection.rating = 1
+          detection.note = `
+            <div>You're using unpatched Playwright and method <code>page.exposeFunction</code>. It's detected because the exposed function has a property <code>__installed = true</code>.</div>
+            <div>${noFixTip}</div>
+            <div>Remove <code>page.exposeFunction</code> from your code to avoid this leak.</div>
+          `
+          detection.debug = {
+            windowKey: key,
+          }
+          break
+        }
+      }
+    }
+
+    addDetection(detection)
+    setTimeout(testExposeFunctionLeak, 100)
+  }
+  testExposeFunctionLeak()
+}
+
+function testPwInitScriptsInit() {
+  const testPwInitScripts = async () => {
+    if (window.__pwInitScripts !== undefined) {
+      addDetection({
+        type: 'pwInitScripts',
+        rating: 1,
+        note: `
+            <div>You're using unpatched Playwright as it creates <code>window.__pwInitScripts</code> object.</div>
+            <div>${noFixTip}</div>
+       `,
+        debug: {
+          __pwInitScripts: window.__pwInitScripts,
+        },
+      })
+      return
+    }
+
+    setTimeout(testPwInitScripts, 100)
+  }
+
+  addDetection({
+    type: 'pwInitScripts',
+    rating: -1,
+    note: 'No <code>window.__pwInitScripts</code> detected.',
+  })
+
+  testPwInitScripts()
 }
 
 function testNavigatorWebdriver() {
@@ -122,6 +232,99 @@ function testViewport() {
   }
 }
 
+async function testUseragent() {
+  if (typeof navigator.userAgentData === undefined) {
+    addDetection({
+      type: 'useragent',
+      rating: 0,
+      note: 'Cannot detect Chrome version as navigator.userAgentData is undefined.',
+    })
+    return
+  }
+
+  let rating
+  let note
+  const debug = {}
+  const useragentVersionItems = await navigator.userAgentData.getHighEntropyValues(['fullVersionList']).then(ua => ua.fullVersionList.filter(item => ['Chromium', 'Google Chrome'].includes(item.brand)))
+  debug.useragentVersionItems = useragentVersionItems
+  const useragentVersionItemsBrands = useragentVersionItems.map(item => item.brand)
+
+  if (!useragentVersionItems.length) {
+    note = 'Cannot detect Chrome version. These tests are designed for Chromium based browsers only.'
+    rating = .5
+  } else if (useragentVersionItemsBrands.includes('Chromium') && !useragentVersionItemsBrands.includes('Google Chrome')) {
+    note = `
+    <div>Google Chrome is not presented in <code>navigator.userAgentData</code>. You might be using Google Chrome for Testing which is a red flag.</div>
+    <div>Try to specify <code>executablePath</code> and use Google Chrome (stable channel).</div>
+    `
+    rating = 1
+  } else {
+    // get latest stable release
+    let latestStableRelease
+    try {
+      const response = await fetch('https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Windows&num=1&offset=0')
+      if (!response.ok) {
+        throw new Error(`${response.status} ${response.statusText}`)
+      }
+      latestStableRelease = (await response.json())[0]
+    } catch (error) {
+      console.error('[testUseragent] fetch failed:', error)
+      addDetection({
+        type: 'useragent',
+        rating: 0,
+        debug: {
+          error: error.message,
+        },
+        note: 'Cannot fetch the latest stable release of Chrome.',
+      })
+      return
+    }
+    const latestStableReleaseVersion = latestStableRelease.version
+    debug.latestStableRelease = {
+      version: latestStableReleaseVersion,
+      date: new Date(latestStableRelease.time),
+    }
+
+    // src: https://stackoverflow.com/a/16187766
+    const cmpVersions = (a, b) => {
+      var i, diff
+      var regExStrip0 = /(\.0+)+$/
+      var segmentsA = a.replace(regExStrip0, '').split('.')
+      var segmentsB = b.replace(regExStrip0, '').split('.')
+      var l = Math.min(segmentsA.length, segmentsB.length)
+
+      for (i = 0; i < l; i++) {
+        diff = parseInt(segmentsA[i], 10) - parseInt(segmentsB[i], 10)
+        if (diff) {
+          return diff
+        }
+      }
+      return segmentsA.length - segmentsB.length
+    }
+    const googleChromeVersion = useragentVersionItems.find(item => item.brand === 'Google Chrome').version
+    if (cmpVersions(googleChromeVersion, latestStableReleaseVersion)) {
+      note = 'Your Chrome version is higher than the latest stable release. You might be using not Stable channel which is abnormal.'
+      rating = .5
+    }
+  }
+
+  if (note) {
+    addDetection({
+      type: 'useragent',
+      rating,
+      debug,
+      note,
+    })
+  } else {
+    addDetection({
+      type: 'useragent',
+      rating: -1,
+      debug,
+      note: 'Google Chrome useragent looks fine.',
+    })
+  }
+}
+
 function testCsp() {
   const script = document.createElement('script')
   script.type = 'text/javascript'
@@ -180,7 +383,7 @@ function testSourceUrl() {
       addDetection({
         type: 'sourceUrlLeak',
         rating: 1,
-        note: `${note} Use <a href="https://github.com/rebrowser/rebrowser-patches" target="_blank">rebrowser-patches</a>.`,
+        note: `${note} ${usePatchesTip}`,
         debug,
       })
     } else {
@@ -208,15 +411,23 @@ function testSourceUrl() {
 }
 
 function addDetection(data) {
-  console.log('addDetection', data)
-
   if (data.rating === undefined) {
     data.rating = 1
   }
 
-  if (data.once && detections.find(d => d.type === data.type) !== undefined) {
-    return
+  const existingDetection = detections.find(d => d.type === data.type)
+  if (existingDetection !== undefined) {
+    if (data.once) {
+      return
+    }
+
+    if (data.rating === existingDetection.rating && data.note === existingDetection.note) {
+      // no changes, ignore
+      return
+    }
   }
+
+  console.log('addDetection', data)
 
   data.msSinceLoad = parseFloat((window.performance.now() - window.startTime).toFixed(3))
   if (data.replace === false) {
@@ -278,9 +489,12 @@ function initTests() {
   testSourceUrl()
   testMainWorldExecution()
   runtimeEnableLeakInit()
+  testExposeFunctionLeakInit()
   testNavigatorWebdriver()
   testCsp()
   testViewport()
+  testUseragent()
+  testPwInitScriptsInit()
 }
 
 function toggleHowTo() {

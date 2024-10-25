@@ -12,16 +12,29 @@
         <h1>🕵️ rebrowser-bot-detector </h1>
         <div class="text-secondary">Modern tests to detect automated browser behavior. See <a href="https://github.com/rebrowser/rebrowser-bot-detector" target="_blank">github repo</a> for more details. <span onclick="toggleHowTo();" class="text-secondary dashed cursor-pointer">How to properly run the tests?</span></div>
         <div id="how-to-run-test" class="d-none">
-            <p>Tests marked with ⚪️ sign require some extra steps to be triggered. You need to run some JS from your automation script.</p>
-                <pre class="codeblock">
-                    /* puppeteer & playwright */
-                    // dummyFn
-                    await page.evaluate(() => window.dummyFn())
-                    // sourceUrlLeak
-                    await page.evaluate(() => document.getElementById('detections-json'))
-                    // mainWorldExecution
-                    await page.evaluate(() => document.getElementsByClassName('div'))
-                </pre>
+            <p>These tests are designed for Chromium based browsers only.</p>
+            <p>To properly trigger all the tests you need to add the code below to your automation script and open this page again.</p>
+            <pre class="codeblock">
+                /* puppeteer & playwright */
+                // dummyFn - must be called in the main context
+                await page.evaluate(() => window.dummyFn())
+                
+                // exposeFunctionLeak
+                await page.exposeFunction('exposedFn', () => { console.log('exposedFn call') })
+                
+                // sourceUrlLeak
+                await page.evaluate(() => document.getElementById('detections-json'))
+                
+                // mainWorldExecution - must be called in an isolated context
+                /* puppeteer */
+                await page.mainFrame().isolatedRealm().evaluate(() => document.getElementsByClassName('div'))
+                
+                /* 
+                playwright - there is no way to explicitly evaluate script in an isolated context
+                follow rebrowser-patches on github for the fix
+                */
+                await page.evaluate(() => document.getElementsByClassName('div'))
+            </pre>
         </div>
         
         <table id="detections-table">
@@ -39,5 +52,7 @@
         
         <h3>JSON</h3>
         <textarea id="detections-json"></textarea>
+    
+        <footer>Sponsored by <a href="https://rebrowser.net">rebrowser.net</a> &mdash; the ultimate stealth browser and scraping solution fueled by AI.</footer>
     </body>
 </html>

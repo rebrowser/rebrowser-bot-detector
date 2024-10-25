@@ -125,3 +125,17 @@ code {
     white-space: pre-line;
     padding: 0 1.5em;
 }
+
+p {
+    margin: .5em 0;
+}
+
+footer {
+    margin-top: 1em;
+    font-size: 80%;
+    color: var(--text-light);
+}
+
+footer a {
+    color: var(--text-light);
+}

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>storagePartitioning: middle frame</title>
+    </head>
+    <body>
+        <script>
+            // storagePartitioning test, middle frame (another site than the top page): loads the leaf frame from
+            // the top page's origin. Only the detector's own origins are accepted.
+            const topOrigin = new URLSearchParams(location.search).get('top')
+            const allowedOrigin = /^(https:\/\/bot-detector\.rebrowser\.net|https:\/\/([a-z0-9-]+\.)?rebrowser-bot-detector\.pages\.dev|http:\/\/(127\.0\.0\.1|localhost)(:\d+)?)$/
+            if (topOrigin && allowedOrigin.test(topOrigin)) {
+                const frame = document.createElement('iframe')
+                frame.src = `${topOrigin}/aba/leaf/`
+                document.body.appendChild(frame)
+            }
+        </script>
+    </body>
+</html>

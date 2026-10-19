@@ -143,7 +143,7 @@ function testExposeFunctionLeakInit() {
     } else if (window.exposedFn.toString()?.includes('exposeBindingHandle supports a single argument')) {
       detection.rating = 1
       detection.note = `
-        <div>You're using unpatched Playwright and method <code>page.exposeFunction</code>.</div>
+        <div>You're using <code>page.exposeFunction</code> in Playwright 1.59 or older, or in Patchright.</div>
         <div>${noFixTip}</div>
         <div>Remove <code>page.exposeFunction</code> from your code to avoid this leak.</div>
       `
@@ -847,12 +847,22 @@ function testSourceUrl() {
     } else if (error.stack.toString().includes('UtilityScript.')) {
       note = 'Error stack contains <code>UtilityScript.</code>. You\'re using unpatched Playwright.'
     }
+    const bareFileNames = note ? [] : bareFileNamesInStack(debug)
 
     if (note) {
       addDetection({
         type: 'sourceUrlLeak',
         rating: 1,
         note: `${note} ${usePatchesTip}`,
+        debug,
+      })
+    } else if (bareFileNames.length) {
+      const fileList = bareFileNames.map(file => `<code>${escapeHtml(file)}</code>`).join(', ')
+      const appJsTip = bareFileNames.includes('app.js') ? ' <code>app.js</code> is the default of rebrowser-patches 1.1.0 and older (Puppeteer): update to the latest version.' : ''
+      addDetection({
+        type: 'sourceUrlLeak',
+        rating: 0.5,
+        note: `Error stack has a frame from ${fileList}, a script name with no URL. Code injected with a bare <code>//# sourceURL</code> looks like this, but page code can produce it too.${appJsTip}`,
         debug,
       })
     } else {
@@ -877,6 +887,314 @@ function testSourceUrl() {
     rating: 0,
     note: 'Call <code>document.getElementById(\'detections-json\')</code> to test sourceUrl leak.',
   })
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
+// file names from Chromium stack frames that have no URL, e.g. "at app.js:4:14"
+function bareFileNamesInStack(stack) {
+  const files = new Set()
+  for (const line of String(stack).split('\n')) {
+    if (!/^\s*at /.test(line)) {
+      continue
+    }
+    for (const match of line.matchAll(/([^\s(),]*):(\d+):(\d+)/g)) {
+      const file = match[1]
+      if (file === '' || file === '<anonymous>' || /^[a-z][a-z0-9+.-]*:/i.test(file)) {
+        continue
+      }
+      files.add(file)
+    }
+  }
+  return [...files]
+}
+
+// detects a page document served by the automation tool itself (Fetch.fulfillRequest, route.fulfill): no network
+// protocol, but data was transferred
+function testDocumentInterception() {
+  if (navigator.userAgentData === undefined) {
+    addDetection({
+      type: 'documentInterception',
+      rating: 0,
+      note: 'Runs in Chromium-based browsers only.',
+    })
+    return
+  }
+  const nav = performance.getEntriesByType('navigation')[0]
+  if (!nav) {
+    addDetection({
+      type: 'documentInterception',
+      rating: 0,
+      note: 'No navigation timing entry for this page.',
+    })
+    return
+  }
+
+  const intercepted = nav.nextHopProtocol === '' && nav.transferSize > 0 && (nav.deliveryType ?? '') === '' && nav.workerStart === 0
+  const debug = {
+    nextHopProtocol: nav.nextHopProtocol,
+    transferSize: nav.transferSize,
+    deliveryType: nav.deliveryType,
+    workerStart: nav.workerStart,
+  }
+  if (intercepted) {
+    addDetection({
+      type: 'documentInterception',
+      rating: 1,
+      note: `
+        <div>This page arrived with no network protocol although data was transferred. That's how a page looks when an automation tool serves it itself through DevTools (<code>Fetch.fulfillRequest</code>, Playwright <code>route.fulfill()</code>). Patchright does this on every page load once it uses <code>addInitScript</code> or <code>exposeFunction</code>.</div>
+        <div>Don't serve the main document from your automation script.</div>
+      `,
+      debug,
+    })
+  } else {
+    addDetection({
+      type: 'documentInterception',
+      rating: -1,
+      note: 'The page was loaded over the network as usual.',
+      debug,
+    })
+  }
+}
+
+// detects disabled popup blocking: a popup opened by a script without a click
+function testPopupBlocking() {
+  let popup = null
+  try {
+    popup = window.open('about:blank', '_blank', 'popup,width=100,height=100')
+  } catch (error) {
+    // treated as blocked
+  }
+  if (popup) {
+    try {
+      popup.close()
+    } catch (error) {
+      // the popup is gone or not ours to close
+    }
+    addDetection({
+      type: 'popupBlocking',
+      rating: 0.5,
+      note: `
+        <div>A page script opened a popup without a click. Either popups are allowed for this site in the browser settings, or Chrome runs with <code>--disable-popup-blocking</code> (a Puppeteer and Playwright default).</div>
+        <div>${usePatchesTip}</div>
+      `,
+    })
+  } else {
+    addDetection({
+      type: 'popupBlocking',
+      rating: -1,
+      note: 'Popups without a click are blocked, as in a normal browser.',
+    })
+  }
+}
+
+// detects disabled IPC flooding protection: Chrome ignores history.replaceState() after 200 calls within 10 seconds
+function testIpcFloodingProtection() {
+  const iframe = document.createElement('iframe')
+  iframe.style.display = 'none'
+  document.body.appendChild(iframe)
+  const frameWindow = iframe.contentWindow
+  let applied
+  let error
+  let failedAtCall
+  try {
+    for (let i = 1; i <= 300; i++) {
+      try {
+        frameWindow.history.replaceState({ i }, '')
+      } catch (e) {
+        error = String(e?.name || e)
+        failedAtCall = i
+        break
+      }
+    }
+    applied = frameWindow.history.state?.i
+  } catch (e) {
+    error = error ?? String(e?.name || e)
+  } finally {
+    iframe.remove()
+  }
+
+  if (error || typeof applied !== 'number') {
+    // Firefox throws at call 201 and Safari at 101: inconclusive, never a red flag
+    addDetection({
+      type: 'ipcFloodingProtection',
+      rating: 0,
+      note: 'Couldn\'t run the test (the browser rejected or ignored the history updates).',
+      debug: { applied, error, failedAtCall },
+    })
+  } else if (applied === 300) {
+    addDetection({
+      type: 'ipcFloodingProtection',
+      rating: 1,
+      note: `
+        <div>All 300 rapid <code>history.replaceState()</code> calls went through. Chrome ignores them after 200 within 10 seconds, unless it runs with <code>--disable-ipc-flooding-protection</code> (a Puppeteer and Playwright default).</div>
+        <div>${usePatchesTip}</div>
+      `,
+      debug: { applied },
+    })
+  } else {
+    addDetection({
+      type: 'ipcFloodingProtection',
+      rating: -1,
+      note: 'History updates are rate-limited, as in a normal browser.',
+      debug: { applied },
+    })
+  }
+}
+
+// the origin of the other site (not same-site with this page) for the storagePartitioning test, or null
+function storagePartitioningOtherOrigin() {
+  const port = location.port ? `:${location.port}` : ''
+  if (location.hostname === 'bot-detector.rebrowser.net') {
+    return 'https://rebrowser-bot-detector.pages.dev'
+  }
+  if (location.hostname.endsWith('rebrowser-bot-detector.pages.dev')) {
+    return 'https://bot-detector.rebrowser.net'
+  }
+  if (location.hostname === '127.0.0.1') {
+    return `${location.protocol}//localhost${port}`
+  }
+  if (location.hostname === 'localhost') {
+    return `${location.protocol}//127.0.0.1${port}`
+  }
+  return null
+}
+
+// detects disabled third-party storage partitioning: a frame of this site nested in a frame of another site
+// (aba/mid -> aba/leaf) can read this page's localStorage
+async function testStoragePartitioning() {
+  const inconclusive = (note, debug) => addDetection({ type: 'storagePartitioning', rating: 0, note, debug })
+  if (navigator.userAgentData === undefined) {
+    inconclusive('Runs in Chromium-based browsers only (Safari shares this storage by design).')
+    return
+  }
+  const version = chromiumMajorVersion()
+  if (!version || version < 148) {
+    inconclusive('Runs in Chromium 148 and newer only.')
+    return
+  }
+  const otherOrigin = storagePartitioningOtherOrigin()
+  if (!otherOrigin) {
+    inconclusive('Can\'t run on this host.')
+    return
+  }
+
+  const key = 'rebrowserStoragePartitioning'
+  const value = Math.random().toString(36).slice(2)
+  try {
+    localStorage.setItem(key, value)
+  } catch (error) {
+    inconclusive('localStorage isn\'t available.')
+    return
+  }
+
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:absolute;width:1px;height:1px;border:0;opacity:0'
+  let onMessage
+  let timer
+  let data
+  try {
+    data = await new Promise(resolve => {
+      onMessage = event => {
+        if (event.origin === location.origin && event.data?.type === 'storagePartitioningLeaf') {
+          resolve(event.data)
+        }
+      }
+      window.addEventListener('message', onMessage)
+      timer = setTimeout(() => resolve(null), 10000)
+      iframe.src = `${otherOrigin}/aba/mid/?top=${encodeURIComponent(location.origin)}`
+      document.body.appendChild(iframe)
+    })
+  } finally {
+    clearTimeout(timer)
+    window.removeEventListener('message', onMessage)
+    iframe.remove()
+    localStorage.removeItem(key)
+  }
+
+  if (!data) {
+    inconclusive('No answer from the test frames within 10 seconds.')
+  } else if (data.error) {
+    inconclusive('The test frame couldn\'t read storage.', { error: data.error })
+  } else if (data.value === value) {
+    addDetection({
+      type: 'storagePartitioning',
+      rating: 1,
+      note: `
+        <div>An iframe from this site, nested in a frame from another site, can read this page's <code>localStorage</code>: third-party storage partitioning is turned off. Playwright turns it off by default (<code>--disable-features=...ThirdPartyStoragePartitioning...</code>), and so do tools built on it, including Patchright.</div>
+        <div>${usePatchesTip}</div>
+      `,
+      debug: { otherOrigin },
+    })
+  } else {
+    addDetection({
+      type: 'storagePartitioning',
+      rating: -1,
+      note: 'Third-party storage is partitioned, as in a normal Chrome.',
+      debug: { otherOrigin },
+    })
+  }
+}
+
+// names of window properties that hold a native-looking function with an empty name (never calls getters)
+function findUnnamedNativeGlobals() {
+  const names = []
+  for (const name of Object.getOwnPropertyNames(window)) {
+    try {
+      const desc = Object.getOwnPropertyDescriptor(window, name)
+      if (!desc || !('value' in desc)) {
+        continue
+      }
+      if (typeof desc.value === 'function' && desc.value.name === '' && /\{\s*\[native code\]\s*\}\s*$/.test(Function.prototype.toString.call(desc.value))) {
+        names.push(name)
+      }
+    } catch (error) {
+      // an exotic property that can't be inspected, skip it
+    }
+  }
+  return names
+}
+
+// detects globals created by CDP Runtime.addBinding (unnamed native functions on window), sampled all the time
+// because bindings can appear after load
+function testCdpBindingGlobalsInit() {
+  const firstSeenMs = new Map()
+  let rounds = 0
+
+  const sample = () => {
+    rounds += 1
+    const sizeBefore = firstSeenMs.size
+    for (const name of findUnnamedNativeGlobals()) {
+      if (!firstSeenMs.has(name)) {
+        firstSeenMs.set(name, Math.round(performance.now() - window.startTime))
+      }
+    }
+    if (firstSeenMs.size > sizeBefore) {
+      const names = [...firstSeenMs.keys()]
+      addDetection({
+        type: 'cdpBindingGlobals',
+        rating: 0.5,
+        note: `
+          <div>Found native-looking functions with an empty name on <code>window</code>: ${names.map(name => `<code>${escapeHtml(name)}</code>`).join(', ')}. CDP <code>Runtime.addBinding</code> creates globals like this (rebrowser-patches 1.1.0 and older left 2–4 of them per page, with random names). Page scripts can create them too, so it's only a hint.</div>
+          <div>${usePatchesTip}</div>
+        `,
+        debug: { names, firstSeenMs: Object.fromEntries(firstSeenMs) },
+      })
+    }
+
+    // every 100 ms for the first 10 s, then every second
+    setTimeout(sample, rounds < 100 ? 100 : 1000)
+  }
+
+  addDetection({
+    type: 'cdpBindingGlobals',
+    rating: -1,
+    note: 'No unnamed native functions on <code>window</code>.',
+  })
+
+  sample()
 }
 
 function addDetection(data) {
@@ -941,7 +1259,7 @@ function renderDetections() {
       `
         ${detection.note}
         ${!detection.debug ? '' : `
-          <pre>${typeof detection.debug === 'string' ? detection.debug : JSON.stringify(detection.debug, null, 2)}</pre>
+          <pre>${escapeHtml(typeof detection.debug === 'string' ? detection.debug : JSON.stringify(detection.debug, null, 2))}</pre>
         `}
       `,
     ])
@@ -980,6 +1298,11 @@ function initTests() {
   runAsyncTest('workerConsistency', testWorkerConsistency)
   runAsyncTest('nativeTampering', testNativeTampering)
   testMobileEmulation()
+  testDocumentInterception()
+  testPopupBlocking()
+  testIpcFloodingProtection()
+  runAsyncTest('storagePartitioning', testStoragePartitioning)
+  testCdpBindingGlobalsInit()
 }
 
 function toggleHowTo() {

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>storagePartitioning: leaf frame</title>
+    </head>
+    <body>
+        <script>
+            // storagePartitioning test, leaf frame (same origin as the top page, inside a frame from another site):
+            // reports what it sees in localStorage
+            let value = null
+            let error = null
+            try {
+                value = localStorage.getItem('rebrowserStoragePartitioning')
+            } catch (e) {
+                error = String(e?.name || e)
+            }
+            window.top.postMessage({ type: 'storagePartitioningLeaf', value, error }, location.origin)
+        </script>
+    </body>
+</html>

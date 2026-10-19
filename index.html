@@ -5,7 +5,7 @@
         <meta http-equiv="Content-Security-Policy" content="default-src * data: 'unsafe-eval' 'unsafe-inline' blob:; script-src blob: 'self' 'unsafe-eval' 'unsafe-inline' https://static.cloudflareinsights.com https://cloudflareinsights.com;" />
         <title>rebrowser-bot-detector</title>
         <meta name="description" content="Set of modern tests for browser automation. Check your Puppeteer and Playwright for leaks and detections." />
-        <script src="index.js?3"></script>
+        <script src="index.js?4"></script>
         <link rel="stylesheet" href="index.css?3" />
     </head>
     <body>
@@ -21,6 +21,10 @@
                 
                 // exposeFunctionLeak
                 await page.exposeFunction('exposedFn', () => { console.log('exposedFn call') })
+                
+                // documentInterception - add any init script before opening the page
+                await page.evaluateOnNewDocument(() => {}) /* puppeteer */
+                await page.addInitScript(() => {}) /* playwright */
                 
                 // sourceUrlLeak
                 await page.evaluate(() => document.getElementById('detections-json'))

@@ -32,7 +32,9 @@ Fix: use `rebrowser-patches` to disable `Runtime.enable`.
 ### sourceUrlLeak
 Puppeteer will automatically add a unique source URL to every script you run through it. It could be detected by analyzing the error stack.
 
-Fix: use [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches) to use some custom source URL.
+The test also flags a frame from a script that has a bare file name and no URL, such as `at app.js:4:14`: code injected with a bare `//# sourceURL`. rebrowser-patches 1.1.0 and older used `app.js` for Puppeteer. Page code can do the same, so this part is yellow.
+
+Fix: use [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches), which adds no source URL at all.
 
 ### mainWorldExecution
 Your target website could alter some really popular functions such as `document.querySelector` and track every time you use this function for your scripts. It's quite dangerous and will quickly raise a red flag against your browser.
@@ -66,7 +68,7 @@ Puppeteer and Playwright use Google Chrome for Testing out of the box. It's a re
 Playwright injects `__pwInitScripts` into the global scope of the every page by default.
 
 ### exposeFunctionLeak
-It's quite popular to use `page.exposeFunction()` in Puppeteer and Playwright to pass some function from nodejs to browser env. However, this method is full of leaks in both of these libraries.
+It's quite popular to use `page.exposeFunction()` in Puppeteer and Playwright to pass some function from nodejs to browser env. However, this method is full of leaks in both of these libraries. Playwright 1.59 and older, and Patchright, wrap the exposed function in code that a page can read with `toString()`.
 
 ### headless
 Headless Chrome gives itself away in several ways: `HeadlessChrome` in the user agent or `navigator.userAgentData.brands`, and, for `chrome-headless-shell` (Playwright's default headless mode, Puppeteer `headless: 'shell'`), a missing `window.chrome` and a `Notification.permission` that disagrees with `navigator.permissions.query()`. Softer signals are a desktop with no pointing device, an 800x600 screen and WebGL rendered by SwiftShader (Chrome 138+ has no automatic SwiftShader fallback).
@@ -94,6 +96,33 @@ Fix: don't patch native functions. Fix leaks at the source (launch flags, a real
 Mobile emulation in Puppeteer (`page.emulate()`) and Playwright (`devices`) only changes what CDP can change. `navigator.maxTouchPoints` is 1, `navigator.platform` still reports the desktop CPU, and an iPhone user agent comes with a Chromium engine.
 
 Fix: use a real device for mobile traffic.
+
+### documentInterception
+Some automation tools serve the page themselves instead of letting the browser load it: they intercept the request through DevTools (`Fetch.fulfillRequest`, Playwright `route.fulfill()`) and hand the body back. The browser then records the page with an empty network protocol (`nextHopProtocol`) even though data was transferred, which never happens on a normal load (`h2`, `h3`, `http/1.1`) or a load from cache. Patchright does this on every page load once it uses `addInitScript` or `exposeFunction`, to inject its scripts. The test runs in Chromium-based browsers only.
+
+Fix: don't serve the main document from your automation script.
+
+### popupBlocking
+The page calls `window.open()` without a click. A normal browser blocks it, but Puppeteer and Playwright launch Chrome with `--disable-popup-blocking`, so the popup opens (the page closes it right away). A user who allowed popups for the site gets the same result, so the test is yellow at most.
+
+Fix: use [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches), which drops the switch, or pass `ignoreDefaultArgs: ['--disable-popup-blocking']`. Popups opened by `page.click()` still work.
+
+### ipcFloodingProtection
+The page makes 300 quick `history.replaceState()` calls in a hidden iframe. Chrome ignores the ones after 200 within 10 seconds (Firefox and Safari throw an error instead). Puppeteer and Playwright launch Chrome with `--disable-ipc-flooding-protection`, so all 300 go through.
+
+Fix: use [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches), which drops the switch, or pass `ignoreDefaultArgs: ['--disable-ipc-flooding-protection']`.
+
+### storagePartitioning
+The page saves a random value in `localStorage` and loads a hidden iframe from another site, which in turn loads a frame from the page's own site. Chrome keeps that inner frame's storage separate, because one of its ancestors is from another site, so the frame can't see the value. Playwright launches Chrome with `ThirdPartyStoragePartitioning` in `--disable-features`, so the inner frame sees it; tools built on Playwright inherit that, including Patchright 1.64.
+
+The test needs two sites, so it runs only on [bot-detector.rebrowser.net](https://bot-detector.rebrowser.net/) and [rebrowser-bot-detector.pages.dev](https://rebrowser-bot-detector.pages.dev/) (and on `127.0.0.1`/`localhost` for local runs). It runs in Chromium 148 and newer; Safari shares this storage by design, so other browsers are skipped.
+
+Fix: use [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches), which re-enables partitioning.
+
+### cdpBindingGlobals
+CDP `Runtime.addBinding` puts a native function with an empty name on `window`. rebrowser-patches 1.1.0 and older used such bindings to find the page's context and left 2–4 of them on every page, with random names. The test watches `window` for such functions. Page scripts can create functions that look the same, so it's yellow.
+
+Fix: update [`rebrowser-patches`](https://github.com/rebrowser/rebrowser-patches) to the latest version.
 
 ## What is Rebrowser?
 This package is sponsored and maintained by [Rebrowser](https://rebrowser.net). We allow you to scale your browser automation and web scraping in the cloud with hundreds of unique fingerprints.
